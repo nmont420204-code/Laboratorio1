@@ -3,9 +3,12 @@ import sys
 import math
 
 pygame.init()
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+screen = pygame.display.set_mode((1152,768))
+
 WIDTH, HEIGHT = screen.get_size()
+inicio= pygame.transform.scale( pygame.image.load("interfaz.png").convert_alpha(), (WIDTH, HEIGHT))
 pygame.display.set_caption("BLUE KNIGHT")
+
 
 WHITE = (255, 255, 255)
 BLACK = (20, 20, 25)
@@ -206,32 +209,27 @@ def run_game():
         pygame.display.flip()
         clock.tick(60)
 
-def draw_button(screen, text, rect, is_hovered):
-    color = BTN_HOVER if is_hovered else BTN_COLOR
-    pygame.draw.rect(screen, color, rect, border_radius=8)
-    text_surf = font_btn.render(text, True, WHITE)
-    text_rect = text_surf.get_rect(center=rect.center)
-    screen.blit(text_surf, text_rect)
+
+
+def boton(x, y, ancho, alto):
+    return pygame.Rect(x * WIDTH / 1536, y * HEIGHT / 1024,
+                       ancho * WIDTH / 1536, alto * HEIGHT / 1024)
 
 def main_menu():
-    btn_width, btn_height = 300, 60
-    center_x = WIDTH // 2 - btn_width // 2
-    start_y = HEIGHT // 2 - 100
-    
-    play_btn = pygame.Rect(center_x, start_y, btn_width, btn_height)
-    settings_btn = pygame.Rect(center_x, start_y + 80, btn_width, btn_height)
-    stats_btn = pygame.Rect(center_x, start_y + 160, btn_width, btn_height)
-    quit_btn = pygame.Rect(center_x, start_y + 240, btn_width, btn_height)
+    play_btn     = boton(560, 522, 410, 100)
+    settings_btn = boton(560, 638, 410, 97)
+    stats_btn    = boton(560, 745, 410, 95)
+    quit_btn     = boton(560, 852, 410, 93)
+
+   
 
     clock = pygame.time.Clock()
 
     while True:
-        screen.fill(BLACK)
+        screen.blit(inicio, (0,0))
         mouse_pos = pygame.mouse.get_pos()
 
-        title_surf = font_title.render("BLUE KNIGHT", True, WHITE)
-        title_rect = title_surf.get_rect(center=(WIDTH // 2, HEIGHT // 4))
-        screen.blit(title_surf, title_rect)
+        
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -253,10 +251,7 @@ def main_menu():
                     pygame.quit()
                     sys.exit()
 
-        draw_button(screen, "Play", play_btn, play_btn.collidepoint(mouse_pos))
-        draw_button(screen, "Settings", settings_btn, settings_btn.collidepoint(mouse_pos))
-        draw_button(screen, "Statistics", stats_btn, stats_btn.collidepoint(mouse_pos))
-        draw_button(screen, "Quit", quit_btn, quit_btn.collidepoint(mouse_pos))
+        
 
         pygame.display.flip()
         clock.tick(60)
