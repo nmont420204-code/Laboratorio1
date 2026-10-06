@@ -3,12 +3,27 @@ import sys
 import math
 
 pygame.init()
-screen = pygame.display.set_mode((1152,768))
+screen = pygame.display.set_mode((1536, 1024))
+
 
 WIDTH, HEIGHT = screen.get_size()
 inicio= pygame.transform.scale( pygame.image.load("interfaz.png").convert_alpha(), (WIDTH, HEIGHT))
 pygame.display.set_caption("BLUE KNIGHT")
+mapa = pygame.transform.scale( pygame.image.load("MAPA.png").convert_alpha(), (HEIGHT, HEIGHT))
 
+mapa11 = (WIDTH - HEIGHT) // 2
+bloque_exterior = pygame.Rect(mapa11 + 105, 150, 908 - 105, 768 - 150)
+
+def mapa_bloque(x1, y1, x2, y2):
+    return pygame.Rect(mapa11 + x1, y1, x2 - x1, y2 - y1)
+
+bloques = [
+    mapa_bloque(300, 270, 346, 697),   # izquierdo
+    mapa_bloque(677, 270, 720, 697),   # derecho
+    mapa_bloque(300, 270, 720, 341),   # arriba
+    mapa_bloque(300, 625, 475, 697),   # abajo, a la izquierda de la abertura
+    mapa_bloque(548, 625, 720, 697),   # abajo, a la derecha de la abertura
+]
 
 WHITE = (255, 255, 255)
 BLACK = (20, 20, 25)
@@ -169,7 +184,8 @@ def run_game():
     
     running = True
     while running:
-        screen.fill(GRASS_COLOR)
+        screen.fill(BLACK)
+        screen.blit(mapa, (mapa11, 0))
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -211,17 +227,12 @@ def run_game():
 
 
 
-def boton(x, y, ancho, alto):
-    return pygame.Rect(x * WIDTH / 1536, y * HEIGHT / 1024,
-                       ancho * WIDTH / 1536, alto * HEIGHT / 1024)
 
 def main_menu():
-    play_btn     = boton(560, 522, 410, 100)
-    settings_btn = boton(560, 638, 410, 97)
-    stats_btn    = boton(560, 745, 410, 95)
-    quit_btn     = boton(560, 852, 410, 93)
-
-   
+    play_btn     = pygame.Rect(575, 536, 380, 75)
+    settings_btn = pygame.Rect(579, 653, 370, 64)
+    stats_btn    = pygame.Rect(575, 761, 375, 62)
+    quit_btn     = pygame.Rect(576, 867, 370, 71)
 
     clock = pygame.time.Clock()
 
