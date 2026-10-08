@@ -2,7 +2,7 @@ import pygame
 import math 
 from proyectil import Proyectil
 class Wizard(pygame.sprite.Sprite):
-    def __init__(self, x, y, proyectiles):
+    def __init__(self, x, y, proyectiles, bloques):
         super().__init__()
         self.image = pygame.image.load("Tiles/tile_0111.png").convert_alpha()
         self.image = pygame.transform.scale(self.image,(50,50))
@@ -11,6 +11,7 @@ class Wizard(pygame.sprite.Sprite):
         self.speed = 2
         self.hp    = 60
         self.proyectiles = proyectiles 
+        self.bloques = bloques
         self.cooldown    = 120
         self.timer       = 60
         self.damage      = 20
