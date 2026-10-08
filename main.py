@@ -1,6 +1,8 @@
 import pygame
 import sys
 import math
+from wizard import Wizard
+
 
 pygame.init()
 screen = pygame.display.set_mode((1536, 1024))
@@ -146,6 +148,7 @@ class Slime(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, (40, 40))
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = 2
+        self.damage = 10
         self.hp = 30
 
     def update(self, target):
@@ -194,10 +197,14 @@ def run_game():
     enemies = pygame.sprite.Group()
     slime1 = Slime(mapa11 + 150, 200)
     slime2 = Slime(mapa11 + 850, 700)
-    enemies.add(slime1, slime2)
     
+    
+    proyectiles = pygame.sprite.Group()
+    wizard = Wizard(mapa11 + 760, 200, proyectiles, bloques)
+    
+    enemies.add(slime1, slime2, wizard)  
     all_sprites = pygame.sprite.Group()
-    all_sprites.add(player, slime1, slime2)
+    all_sprites.add(player, slime1, slime2, wizard)
     
     running = True
     while running:
@@ -217,6 +224,18 @@ def run_game():
                     
         player.update()
         enemies.update(player)
+
+        proyectiles.update()
+        for p in proyectiles:
+            if p.rect.collidelist(bloques) != -1:
+                p.kill()
+        for p in proyectiles:
+            if p.rect.colliderect(player.rect):
+                player.hp -= p.damage 
+                player.hit_cooldown = 40
+                if player.hp <= 0:
+                    running = False 
+                p.kill()
         
         for enemy in enemies:
             if player.rect.colliderect(enemy.rect) and player.hit_cooldown == 0:
@@ -235,6 +254,7 @@ def run_game():
             player.damage_dealt = True
             
         all_sprites.draw(screen)
+        proyectiles.draw(screen)
         player.draw_attack(screen)
         
         draw_hud(screen, 30, 30, player.hp, player.max_hp, score)
