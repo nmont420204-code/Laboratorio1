@@ -18,11 +18,11 @@ def mapa_bloque(x1, y1, x2, y2):
     return pygame.Rect(mapa11 + x1, y1, x2 - x1, y2 - y1)
 
 bloques = [
-    mapa_bloque(300, 270, 346, 697),   # izquierdo
-    mapa_bloque(677, 270, 720, 697),   # derecho
-    mapa_bloque(300, 270, 720, 341),   # arriba
-    mapa_bloque(300, 625, 475, 697),   # abajo, a la izquierda de la abertura
-    mapa_bloque(548, 625, 720, 697),   # abajo, a la derecha de la abertura
+    mapa_bloque(300, 270, 346, 697),   
+    mapa_bloque(677, 270, 720, 697),   
+    mapa_bloque(300, 270, 720, 341),   
+    mapa_bloque(300, 625, 475, 697),   
+    mapa_bloque(548, 625, 720, 697),   
 ]
 
 WHITE = (255, 255, 255)
@@ -39,7 +39,7 @@ font_hud = pygame.font.SysFont("arial", 24, bold=True)
 
 class Knight(pygame.sprite.Sprite):
     def __init__(self, x, y):
-        super().__init__()
+        super().__init__()  
         
         self.sprites = {
             "up": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_espalda.png").convert_alpha(), (60, 60)),
@@ -77,22 +77,30 @@ class Knight(pygame.sprite.Sprite):
             self.hit_cooldown -= 1
         
         if not self.is_attacking:
+            y2 = self.rect.y
             if keys[pygame.K_w] or keys[pygame.K_UP]:
                 self.rect.y -= self.speed
                 self.direction = "up"
             if keys[pygame.K_s] or keys[pygame.K_DOWN]:
                 self.rect.y += self.speed
                 self.direction = "down"
+
+            if self.rect.collidelist(bloques) != -1:
+                self.rect.y = y2
+            x2 = self.rect.x
             if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                 self.rect.x -= self.speed
                 self.direction = "left"
             if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 self.rect.x += self.speed
                 self.direction = "right"
+
+            if self.rect.collidelist(bloques) != -1:
+                self.rect.x = x2
                 
             self.image = self.sprites[self.direction]
                 
-        self.rect.clamp_ip(screen.get_rect())
+        self.rect.clamp_ip(bloque_exterior)
 
         if self.is_attacking:
             self.current_frame += self.animation_speed
@@ -148,8 +156,17 @@ class Slime(pygame.sprite.Sprite):
         if dist > 0:
             dx /= dist
             dy /= dist
-            self.rect.x += dx * self.speed
+            y_antes = self.rect.y
             self.rect.y += dy * self.speed
+            if self.rect.collidelist(bloques) != -1:
+                self.rect.y = y_antes
+
+            x_antes = self.rect.x
+            self.rect.x += dx * self.speed
+            if self.rect.collidelist(bloques) != -1:
+                self.rect.x = x_antes
+
+            self.rect.clamp_ip(bloque_exterior)
 
 def draw_hud(surface, x, y, hp, max_hp, score):
     bar_width = 200
@@ -175,8 +192,8 @@ def run_game():
     score = 0
     
     enemies = pygame.sprite.Group()
-    slime1 = Slime(100, 100)
-    slime2 = Slime(WIDTH - 100, HEIGHT - 100)
+    slime1 = Slime(mapa11 + 150, 200)
+    slime2 = Slime(mapa11 + 850, 700)
     enemies.add(slime1, slime2)
     
     all_sprites = pygame.sprite.Group()
