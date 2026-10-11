@@ -37,5 +37,19 @@ def parse_line(linea):
     return partes #si todo esta bien muestra la lista
 
 
-  
-        
+def archivos_de(log_dir):
+   x = os.path.join(log_dir, "*.log") #archivo que termine en .log
+   archivos= glob.glob(x) #busca los archivos que coinciden con el patron
+   return archivos
+   
+   
+def iter_events(log_dir):
+    for path in sorted(archivos_de(log_dir)):
+       
+        with open(path, "r", encoding="utf-8") as f: #archivo para lectura "r"
+           
+            for linea in f:
+                 evento = parse_line(linea)
+                 if evento is not None:
+                    yield evento #generador 
+                   
