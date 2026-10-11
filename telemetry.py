@@ -42,7 +42,6 @@ def archivos_de(log_dir):
    archivos= glob.glob(x) #busca los archivos que coinciden con el patron
    return archivos
    
-   
 def iter_events(log_dir):
     for path in sorted(archivos_de(log_dir)):
        
@@ -52,4 +51,31 @@ def iter_events(log_dir):
                  evento = parse_line(linea)
                  if evento is not None:
                     yield evento #generador 
-                   
+
+class EscrituraBitacora:            
+   def __init__(self, log_dir, N ):
+      os.makedirs(log_dir ,exist_ok=True) #crea la carpeta y no ocurre nada si ya existe
+      path = os.path.join(log_dir, "events_001.log")
+      self.archivo =  open(path, "a", encoding="utf-8") 
+
+      self.size = N
+      self.buffer = []
+   def vaciar(self):
+      for linea in self.buffer:
+         self.archivo.write(linea + "\n")  # \n para separar los eventos 
+
+      self.archivo.flush()   
+      self.buffer = []
+
+   def escribir(self, linea):    
+      self.buffer.append(linea)
+      if self.size <= len(self.buffer):
+         self.vaciar() #llama a la funcion 
+         
+
+
+         
+
+
+
+     
