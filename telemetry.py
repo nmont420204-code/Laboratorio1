@@ -42,17 +42,35 @@ def archivos_de(log_dir):
    x = os.path.join(log_dir, "*.log") #archivo que termine en .log
    archivos= glob.glob(x) #busca los archivos que coinciden con el patron
    return archivos
-   
-def iter_events(log_dir):
+
+
+def iter_events(log_dir, reporte): #recibe el diccionario como parametro 
+    sesiones = {}
+    incomp = 0 
     for path in sorted(archivos_de(log_dir)):
-       
+        reporte["Archivos procesados"] +=1
         with open(path, "r", encoding="utf-8") as f: #archivo para lectura "r"
            
             for linea in f:
+                 reporte["Lineas leidas"] +=1
                  evento = parse_line(linea)
                  if evento is not None:
+                    reporte["Eventos validos"] +=1
+                    if evento[2] == "SESSION_START": 
+                       sesiones[evento[1]] = False
+                    else:
+                       if evento[2] == "SESSION_END":
+                          sesiones[evento[1]] = True
+                       
                     yield evento #generador 
-
+                 else:
+                     reporte["Lineas corruptas"] +=1   
+                                   
+    for id_sesion in sesiones:                       
+       if sesiones[id_sesion] == False:               
+         incomp += 1
+    reporte["Sesiones incompletas"] = incomp  
+    
 class EscrituraBitacora:            
    def __init__(self, log_dir, N, umbral=512000):
       os.makedirs(log_dir ,exist_ok=True) #crea la carpeta y no ocurre nada si ya existe
@@ -100,13 +118,19 @@ class EscrituraBitacora:
 
    def rotacion(self):
       t = os.path.getsize(self.path)
-      if t > self.umbral:
+      if t > self.umbral:  
         self.archivo.close()
         self.numero_archivo += 1 
         self.abrir_archivo(self.numero_archivo )
-        
 
 
+def reporte_datos():
+   reporte = {
+     "Archivos procesados": 0  , #contadores incian en 0 
+     "Lineas leidas":  0       ,
+     "Eventos validos":  0     ,
+     "Lineas corruptas":  0    ,
+     "Sesiones incompletas":0  
 
-  
-     
+   }
+   return reporte 
