@@ -4,7 +4,7 @@ import math
 import random
 import json
 import os
-from wizard import Wizard
+
 
 pygame.init()
 pygame.mixer.init()
@@ -12,23 +12,36 @@ pygame.mixer.init()
 pygame.mixer.music.load("sounds/musica.mp3")
 pygame.mixer.music.play(-1)
 
-SETTINGS_FILE = "settings.json"
+SETTINGS_FILE = "config.json"
 DEFAULT_SETTINGS = {
     "difficulty": "Normal",
     "sfx_vol": 0.5,
-    "music_vol": 0.5
+    "music_vol": 0.5,
+    "player_name": "Player"
 }
 
 def load_settings():
+    settings = DEFAULT_SETTINGS.copy()
     if os.path.exists(SETTINGS_FILE):
         try:
             with open(SETTINGS_FILE, "r") as f:
-                return json.load(f)
+                settings.update(json.load(f))
         except:
-            return DEFAULT_SETTINGS.copy()
-    return DEFAULT_SETTINGS.copy()
+            pass
+
+    if settings["difficulty"] not in ["Fácil","Normal","Difícil"]:
+        settings["difficulty"] = "Normal"
+    for clave in ["sfx_vol","music_vol"]:
+        try:
+            settings[clave] = min(1.0, max(0.0,float(settings[clave])))
+        except (ValueError, TypeError):
+            settings[clave] = 0.5
+    settings["player_name"] = str(settings["player_name"])[:12]
+    return settings
 
 def save_settings(settings):
+    if not settings ["Player_name"].strip():
+        settings["player_name"] = "Player"
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=4)
 
@@ -91,6 +104,8 @@ update_volumes()
 class Knight(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()  
+        self.tipo = "knight"
+        self.causa_muerte = "causa desconocida"
         size = int(60 * scale_ratio)
         self.sprites = {
             "up": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_espalda.png").convert_alpha(), (size, size)),
@@ -172,21 +187,7 @@ class Knight(pygame.sprite.Sprite):
                 self.is_attacking = False
                 self.current_frame = 0
                 self.attack_rect = None
-        if self.is_attacking:
-            self.current_frame += self.animation_speed
-            
-            offset_dist = 50 * scale_ratio
-            offset_x = math.cos(math.radians(self.attack_angle)) * offset_dist
-            offset_y = -math.sin(math.radians(self.attack_angle)) * offset_dist
-            
-            atk_box = int(80 * scale_ratio)
-            self.attack_rect = pygame.Rect(0, 0, atk_box, atk_box)
-            self.attack_rect.center = (self.rect.centerx + offset_x, self.rect.centery + offset_y)
-            
-            if self.current_frame >= len(self.attack_frames):
-                self.is_attacking = False
-                self.current_frame = 0
-                self.attack_rect = None
+
     def attack(self):
         if not self.is_attacking and self.attack_cooldown == 0:
             self.is_attacking = True
@@ -209,9 +210,15 @@ class Knight(pygame.sprite.Sprite):
                 rotated_rect = rotated_image.get_rect(center=self.attack_rect.center)
                 surface.blit(rotated_image, rotated_rect)
 
+    def recibir_daño(self, cantidad, causa):
+        self.hp -= cantidad 
+        self.hit_cooldown = 50
+        self.causa_muerte = causa 
+
 class Slime(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
+        self.tipo = "slime"
         size = int(40 * scale_ratio)
         self.image = pygame.image.load("Tiles/tile_0108.png").convert_alpha()
         self.image = pygame.transform.scale(self.image, (size, size))
@@ -266,6 +273,7 @@ class Slime(pygame.sprite.Sprite):
 class Cyclops(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
+        self.tipo = "cyclops"
         size = int(60 * scale_ratio)
         try:
             self.image = pygame.image.load("Tiles/tile_0109.png").convert_alpha()
@@ -414,13 +422,13 @@ def blur_surface(surface):
     blur.blit(dark_overlay, (0,0))
     return blur
 
-def end_screen(bg_surface, score, level, round_num, is_victory):
+def end_screen(bg_surface, score, level, round_num, is_victory, causa_muerte):
     clock = pygame.time.Clock()
     running = True
     while running:
         screen.blit(bg_surface, (0, 0))
         
-        main_text = "¡VICTORIA!" if is_victory else "HAS PERDIDO"
+        main_text = "¡VICTORIA!" if is_victory else f"HAS PERDIDO a causa de {causa_muerte}"
         color = GREEN if is_victory else HEALTH_RED
         
         title = font_title.render(main_text, True, color)
@@ -506,19 +514,18 @@ def run_game():
             
         for p in proyectiles:
             if p.rect.colliderect(player.rect):
-                player.hp -= p.damage 
-                player.hit_cooldown = 40
+                player.recibir_daño(p.damage, "una bola de fuego del wizard")
                 if snd_hit: snd_hit.play() 
-                if player.hp <= 0: running = False 
                 p.kill()
         
         for enemy in enemies:
             if player.rect.colliderect(enemy.rect) and player.hit_cooldown == 0:
-                player.hp -= getattr(enemy, "damage", 10)
-                player.hit_cooldown = 45
+                player.recibir_daño(enemy.damage, f" un ataque de {enemy.tipo}")
                 if snd_hit: snd_hit.play() 
-                if player.hp <= 0: running = False
-        
+
+        if player.hp<=0:
+            running = False
+
         hits_items = pygame.sprite.spritecollide(player, items, True)
         for drop in hits_items:
             if drop.type == "potion":
@@ -546,7 +553,7 @@ def run_game():
 
     bg_snap = screen.copy()
     blurred_bg = blur_surface(bg_snap)
-    end_screen(blurred_bg, score, level, round_num, won)
+    end_screen(blurred_bg, score, level, round_num, won, player.causa_muerte  if not won else None)
 
 def settings_menu(bg_surface):
     clock = pygame.time.Clock()
@@ -560,6 +567,8 @@ def settings_menu(bg_surface):
     
     btn_diff = pygame.Rect(WIDTH//2 - int(100 * scale_ratio), HEIGHT//2 + int(100 * scale_ratio), int(200 * scale_ratio), btn_h)
     btn_back = pygame.Rect(WIDTH//2 - int(100 * scale_ratio), HEIGHT//2 + int(250 * scale_ratio), int(200 * scale_ratio), btn_h)
+    cuadro_nombre = pygame.Rect(WIDTH//2 - int(150 * scale_ratio), HEIGHT//2 + int(160 * scale_ratio), int(300 * scale_ratio), btn_h)
+    escribiendo_nombre = False
 
     dificultades = ["Fácil", "Normal", "Difícil"]
     idx_diff = dificultades.index(GAME_SETTINGS["difficulty"])
@@ -581,6 +590,7 @@ def settings_menu(bg_surface):
                 save_settings(GAME_SETTINGS)
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                escribiendo_nombre = cuadro_nombre.collidepoint(mouse_pos) 
                 if btn_sfx_menos.collidepoint(mouse_pos):
                     GAME_SETTINGS["sfx_vol"] = max(0.0, GAME_SETTINGS["sfx_vol"] - 0.1)
                     update_volumes()
@@ -601,7 +611,15 @@ def settings_menu(bg_surface):
                     
                 if btn_back.collidepoint(mouse_pos):
                     save_settings(GAME_SETTINGS) 
-                    running = False
+                    running = False                  
+            if event.type ==pygame.KEYDOWN and escribiendo_nombre:
+                if event.key == pygame.K_BACKSPACE:
+                    GAME_SETTINGS["player_name"] = GAME_SETTINGS["player_name"][:-1]
+                elif event.key == pygame.K_RETURN:
+                    escribiendo_nombre = False
+                elif (event.unicode and event.unicode.isprintable() and event.unicode not in "|;=" and len(GAME_SETTINGS["player_name"]) < 12):
+                    GAME_SETTINGS["player_name"]  += event.unicode
+                    
 
         def draw_option(text, rect_less, rect_more, val_text, y):
             label = font_btn.render(text, True, WHITE)
@@ -612,6 +630,7 @@ def settings_menu(bg_surface):
             screen.blit(font_btn.render("+", True, WHITE), (rect_more.x + (rect_more.w//2 - 10), rect_more.y))
             val_lbl = font_btn.render(val_text, True, GOLD)
             screen.blit(val_lbl, (WIDTH//2 - val_lbl.get_width()//2, y))
+            
 
         draw_option("Efectos:", btn_sfx_menos, btn_sfx_mas, f"{int(GAME_SETTINGS['sfx_vol']*100)}%", HEIGHT//2 - int(100 * scale_ratio))
         draw_option("Música:", btn_mus_menos, btn_mus_mas, f"{int(GAME_SETTINGS['music_vol']*100)}%", HEIGHT//2)
@@ -623,6 +642,13 @@ def settings_menu(bg_surface):
         pygame.draw.rect(screen, HEALTH_RED, btn_back)
         back_text = font_btn.render("Volver", True, WHITE)
         screen.blit(back_text, (btn_back.x + btn_back.w//2 - back_text.get_width()//2, btn_back.y))
+
+        Nombre = font_btn.render("Nombre:", True, WHITE)
+        screen.blit(Nombre, (WIDTH//2 - int(350* scale_ratio),cuadro_nombre.y))
+        pygame.draw.rect(screen, BTN_COLOR, cuadro_nombre)
+        pygame.draw.rect(screen, GOLD if escribiendo_nombre else WHITE, cuadro_nombre, 2)
+        Playername = font_btn.render(GAME_SETTINGS["player_name"]+ ("|" if escribiendo_nombre else ""), True, GOLD)
+        screen.blit(Playername, (cuadro_nombre.x +10, cuadro_nombre.y ))
         
         pygame.display.flip()
         clock.tick(60)
