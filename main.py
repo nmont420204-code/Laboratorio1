@@ -4,7 +4,20 @@ import math
 import random
 import json
 import os
+import time 
+from wizard import Wizard
+from telemetry import EscrituraBitacora
 
+bitacora = EscrituraBitacora("logs",1)
+session_id = ""
+
+def iniciar_sesion():
+    global session_id # cambia la global también
+    session_id = str(int(time.time())) #pone la hora actual en segundos
+
+def registrar(evento, **datos):
+    texto_datos = ";".join(f"{clave}={valor}" for clave, valor in datos.items())
+    bitacora.escribir(f"{time.time()}|{session_id}|{evento}|{texto_datos}")
 
 pygame.init()
 pygame.mixer.init()
@@ -19,7 +32,7 @@ DEFAULT_SETTINGS = {
     "music_vol": 0.5,
     "player_name": "Player"
 }
-
+DIFF_LOG= {"Fácil":"easy","Normal":"normal","Difícil":"Difficult"}
 def load_settings():
     settings = DEFAULT_SETTINGS.copy()
     if os.path.exists(SETTINGS_FILE):
@@ -40,7 +53,7 @@ def load_settings():
     return settings
 
 def save_settings(settings):
-    if not settings ["Player_name"].strip():
+    if not settings ["player_name"].strip():
         settings["player_name"] = "Player"
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=4)
@@ -212,6 +225,7 @@ class Knight(pygame.sprite.Sprite):
 
     def recibir_daño(self, cantidad, causa):
         self.hp -= cantidad 
+        registrar("DAMAGE_TAKEN",amount=cantidad,source=causa)
         self.hit_cooldown = 50
         self.causa_muerte = causa 
 
@@ -421,6 +435,12 @@ def blur_surface(surface):
     dark_overlay.set_alpha(150)
     blur.blit(dark_overlay, (0,0))
     return blur
+CAUSAS = {
+    "fireball": "una bola de fuego del wizard",
+    "slime": "un ataque del slime",
+    "cyclops": "un ataque del cyclops",
+    "wizard": "un ataque del wizard"
+}
 
 def end_screen(bg_surface, score, level, round_num, is_victory, causa_muerte):
     clock = pygame.time.Clock()
@@ -428,7 +448,7 @@ def end_screen(bg_surface, score, level, round_num, is_victory, causa_muerte):
     while running:
         screen.blit(bg_surface, (0, 0))
         
-        main_text = "¡VICTORIA!" if is_victory else f"HAS PERDIDO a causa de {causa_muerte}"
+        main_text = "¡VICTORIA!" if is_victory else f"HAS PERDIDO a causa de {CAUSAS.get(causa_muerte, causa_muerte)}"
         color = GREEN if is_victory else HEALTH_RED
         
         title = font_title.render(main_text, True, color)
@@ -471,7 +491,9 @@ def run_game():
     prev_proj_count = 0 
     running = True
     won = False
-    
+    h_inicio = time.time()
+    iniciar_sesion()
+    registrar("SESSION_START",player= GAME_SETTINGS["player_name"], difficulty =DIFF_LOG[GAME_SETTINGS["difficulty"]] )
     while running:
         screen.fill(BLACK)
         screen.blit(mapa, (0, 0))
@@ -496,6 +518,8 @@ def run_game():
                 if level > max_levels:
                     won = True
                     running = False 
+                else:
+                    registrar("LEVEL_UP",level=level,time=round(time.time() - h_inicio, 1))
             if running:
                 spawn_wave(level, round_num, enemies, all_sprites, proyectiles, items)
 
@@ -514,16 +538,17 @@ def run_game():
             
         for p in proyectiles:
             if p.rect.colliderect(player.rect):
-                player.recibir_daño(p.damage, "una bola de fuego del wizard")
+                player.recibir_daño(p.damage, "fireball")
                 if snd_hit: snd_hit.play() 
                 p.kill()
         
         for enemy in enemies:
             if player.rect.colliderect(enemy.rect) and player.hit_cooldown == 0:
-                player.recibir_daño(enemy.damage, f" un ataque de {enemy.tipo}")
+                player.recibir_daño(enemy.damage, enemy.tipo)
                 if snd_hit: snd_hit.play() 
 
         if player.hp<=0:
+            registrar("PLAYER_DEATH", cause=player.causa_muerte, level=level)
             running = False
 
         hits_items = pygame.sprite.spritecollide(player, items, True)
@@ -538,6 +563,7 @@ def run_game():
                 if player.attack_rect.colliderect(enemy.rect):
                     enemy.hp -= player.damage 
                     if enemy.hp <= 0:
+                        registrar("ENEMY_KILL", type=enemy.tipo, wave=round_num)
                         enemy.kill()
                         score += 100
             player.damage_dealt = True
@@ -553,6 +579,8 @@ def run_game():
 
     bg_snap = screen.copy()
     blurred_bg = blur_surface(bg_snap)
+    registrar("SESSION_END",score=score, level=level, duration=round(time.time()- h_inicio,1),result="victory" if won else "death")
+    bitacora.vaciar()
     end_screen(blurred_bg, score, level, round_num, won, player.causa_muerte  if not won else None)
 
 def settings_menu(bg_surface):
