@@ -6,14 +6,15 @@ import json
 import os
 import time 
 from wizard import Wizard
-from telemetry import EscrituraBitacora
+from telemetry import EscrituraBitacora, reporte_datos, iter_events
+import statistics_engine as stats
 
-bitacora = EscrituraBitacora("logs",1)
+bitacora = EscrituraBitacora("logs", 1)
 session_id = ""
 
 def iniciar_sesion():
-    global session_id # cambia la global también
-    session_id = str(int(time.time())) #pone la hora actual en segundos
+    global session_id
+    session_id = str(int(time.time()))
 
 def registrar(evento, **datos):
     texto_datos = ";".join(f"{clave}={valor}" for clave, valor in datos.items())
@@ -22,8 +23,11 @@ def registrar(evento, **datos):
 pygame.init()
 pygame.mixer.init()
 
-pygame.mixer.music.load("sounds/musica.mp3")
-pygame.mixer.music.play(-1)
+try:
+    pygame.mixer.music.load("sounds/musica.mp3")
+    pygame.mixer.music.play(-1)
+except:
+    pass
 
 SETTINGS_FILE = "config.json"
 DEFAULT_SETTINGS = {
@@ -32,7 +36,8 @@ DEFAULT_SETTINGS = {
     "music_vol": 0.5,
     "player_name": "Player"
 }
-DIFF_LOG= {"Fácil":"easy","Normal":"normal","Difícil":"Difficult"}
+DIFF_LOG = {"Fácil": "easy", "Normal": "normal", "Difícil": "Difficult"}
+
 def load_settings():
     settings = DEFAULT_SETTINGS.copy()
     if os.path.exists(SETTINGS_FILE):
@@ -42,18 +47,18 @@ def load_settings():
         except:
             pass
 
-    if settings["difficulty"] not in ["Fácil","Normal","Difícil"]:
+    if settings["difficulty"] not in ["Fácil", "Normal", "Difícil"]:
         settings["difficulty"] = "Normal"
-    for clave in ["sfx_vol","music_vol"]:
+    for clave in ["sfx_vol", "music_vol"]:
         try:
-            settings[clave] = min(1.0, max(0.0,float(settings[clave])))
+            settings[clave] = min(1.0, max(0.0, float(settings[clave])))
         except (ValueError, TypeError):
             settings[clave] = 0.5
     settings["player_name"] = str(settings["player_name"])[:12]
     return settings
 
 def save_settings(settings):
-    if not settings ["player_name"].strip():
+    if not settings["player_name"].strip():
         settings["player_name"] = "Player"
     with open(SETTINGS_FILE, "w") as f:
         json.dump(settings, f, indent=4)
@@ -67,10 +72,19 @@ WIDTH, HEIGHT = screen.get_size()
 
 scale_ratio = HEIGHT / 1024.0
 
-inicio = pygame.transform.scale(pygame.image.load("interfaz.png").convert_alpha(), (WIDTH, HEIGHT))
+try:
+    inicio = pygame.transform.scale(pygame.image.load("interfaz.png").convert_alpha(), (WIDTH, HEIGHT))
+except:
+    inicio = pygame.Surface((WIDTH, HEIGHT))
+    inicio.fill((20, 20, 40))
+
 pygame.display.set_caption("BLUE KNIGHT")
 
-mapa = pygame.transform.scale(pygame.image.load("MAPA.png").convert_alpha(), (WIDTH, HEIGHT))
+try:
+    mapa = pygame.transform.scale(pygame.image.load("MAPA.png").convert_alpha(), (WIDTH, HEIGHT))
+except:
+    mapa = pygame.Surface((WIDTH, HEIGHT))
+    mapa.fill((40, 40, 50))
 
 floor_left = int(WIDTH * 0.28)
 floor_right = int(WIDTH * 0.73) 
@@ -85,6 +99,7 @@ bloques = [
     pygame.Rect(floor_left, floor_top, 15, floor_bottom - floor_top),
     pygame.Rect(floor_right - 15, floor_top, 15, floor_bottom - floor_top),
 ]
+
 WHITE = (255, 255, 255)
 BLACK = (20, 20, 25)
 BTN_COLOR = (70, 70, 80)
@@ -120,12 +135,18 @@ class Knight(pygame.sprite.Sprite):
         self.tipo = "knight"
         self.causa_muerte = "causa desconocida"
         size = int(60 * scale_ratio)
-        self.sprites = {
-            "up": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_espalda.png").convert_alpha(), (size, size)),
-            "down": pygame.transform.scale(pygame.image.load("Tiles/tile_0087.png").convert_alpha(), (size, size)),
-            "left": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_izquierda.png").convert_alpha(), (size, size)),
-            "right": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_derecha.png").convert_alpha(), (size, size))
-        }
+        try:
+            self.sprites = {
+                "up": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_espalda.png").convert_alpha(), (size, size)),
+                "down": pygame.transform.scale(pygame.image.load("Tiles/tile_0087.png").convert_alpha(), (size, size)),
+                "left": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_izquierda.png").convert_alpha(), (size, size)),
+                "right": pygame.transform.scale(pygame.image.load("Tiles/tile_0087_derecha.png").convert_alpha(), (size, size))
+            }
+        except:
+            surf_dummy = pygame.Surface((size, size))
+            surf_dummy.fill((0, 100, 255))
+            self.sprites = {"up": surf_dummy, "down": surf_dummy, "left": surf_dummy, "right": surf_dummy}
+            
         self.direction = "right"
         self.image = self.sprites[self.direction]
         self.rect = self.image.get_rect(center=(x, y))
@@ -136,12 +157,17 @@ class Knight(pygame.sprite.Sprite):
         self.damage = 30 
         
         atk_size = int(120 * scale_ratio)
-        self.attack_frames = [
-            pygame.transform.scale(pygame.image.load("Tiles/ataque1.png").convert_alpha(), (atk_size, atk_size)),
-            pygame.transform.scale(pygame.image.load("Tiles/ataque2.png").convert_alpha(), (atk_size, atk_size)),
-            pygame.transform.scale(pygame.image.load("Tiles/ataque3.png").convert_alpha(), (atk_size, atk_size)),
-            pygame.transform.scale(pygame.image.load("Tiles/ataque4.png").convert_alpha(), (atk_size, atk_size))
-        ]
+        try:
+            self.attack_frames = [
+                pygame.transform.scale(pygame.image.load("Tiles/ataque1.png").convert_alpha(), (atk_size, atk_size)),
+                pygame.transform.scale(pygame.image.load("Tiles/ataque2.png").convert_alpha(), (atk_size, atk_size)),
+                pygame.transform.scale(pygame.image.load("Tiles/ataque3.png").convert_alpha(), (atk_size, atk_size)),
+                pygame.transform.scale(pygame.image.load("Tiles/ataque4.png").convert_alpha(), (atk_size, atk_size))
+            ]
+        except:
+            dummy_atk = pygame.Surface((atk_size, atk_size), pygame.SRCALPHA)
+            pygame.draw.circle(dummy_atk, (255, 255, 0, 150), (atk_size//2, atk_size//2), atk_size//2)
+            self.attack_frames = [dummy_atk, dummy_atk, dummy_atk, dummy_atk]
         
         self.is_attacking = False
         self.current_frame = 0
@@ -187,7 +213,6 @@ class Knight(pygame.sprite.Sprite):
 
         if self.is_attacking:
             self.current_frame += self.animation_speed
-            
             offset_dist = 50 * scale_ratio
             offset_x = math.cos(math.radians(self.attack_angle)) * offset_dist
             offset_y = -math.sin(math.radians(self.attack_angle)) * offset_dist
@@ -225,7 +250,7 @@ class Knight(pygame.sprite.Sprite):
 
     def recibir_daño(self, cantidad, causa):
         self.hp -= cantidad 
-        registrar("DAMAGE_TAKEN",amount=cantidad,source=causa)
+        registrar("DAMAGE_TAKEN", amount=cantidad, source=causa)
         self.hit_cooldown = 50
         self.causa_muerte = causa 
 
@@ -234,7 +259,11 @@ class Slime(pygame.sprite.Sprite):
         super().__init__()
         self.tipo = "slime"
         size = int(40 * scale_ratio)
-        self.image = pygame.image.load("Tiles/tile_0108.png").convert_alpha()
+        try:
+            self.image = pygame.image.load("Tiles/tile_0108.png").convert_alpha()
+        except:
+            self.image = pygame.Surface((size, size))
+            self.image.fill((50, 200, 50))
         self.image = pygame.transform.scale(self.image, (size, size))
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = 2 * scale_ratio
@@ -248,32 +277,18 @@ class Slime(pygame.sprite.Sprite):
         
         if dist > 0:
             dx /= dist; dy /= dist
-            
             y_antes = self.rect.y
             self.rect.y += dy * self.speed
             idx_y = self.rect.collidelist(bloques)
             col_y = idx_y != -1
-            if col_y: 
-                self.rect.y = y_antes
+            if col_y: self.rect.y = y_antes
                 
             x_antes = self.rect.x
             self.rect.x += dx * self.speed
             idx_x = self.rect.collidelist(bloques)
             col_x = idx_x != -1
-            if col_x: 
-                self.rect.x = x_antes
+            if col_x: self.rect.x = x_antes
             
-            if col_x and not col_y:
-                move_y = dy
-                if abs(dy) < 0.1:
-                    move_y = -1 if self.rect.centery < bloques[idx_x].centery else 1
-                self.rect.y += (1 if move_y > 0 else -1) * (self.speed * 0.8)
-            elif col_y and not col_x:
-                move_x = dx
-                if abs(dx) < 0.1:
-                    move_x = -1 if self.rect.centerx < bloques[idx_y].centerx else 1
-                self.rect.x += (1 if move_x > 0 else -1) * (self.speed * 0.8)
-
             for other in enemies_group:
                 if other != self and self.rect.colliderect(other.rect):
                     ox = self.rect.centerx - other.rect.centerx
@@ -284,6 +299,7 @@ class Slime(pygame.sprite.Sprite):
                     if odist > 0:
                         self.rect.x += (ox / odist) * (self.speed * 1.2)
                         self.rect.y += (oy / odist) * (self.speed * 1.2)
+
 class Cyclops(pygame.sprite.Sprite):
     def __init__(self, x, y):
         super().__init__()
@@ -292,7 +308,11 @@ class Cyclops(pygame.sprite.Sprite):
         try:
             self.image = pygame.image.load("Tiles/tile_0109.png").convert_alpha()
         except:
-            self.image = pygame.image.load("Tiles/tile_0108.png").convert_alpha() 
+            try:
+                self.image = pygame.image.load("Tiles/tile_0108.png").convert_alpha() 
+            except:
+                self.image = pygame.Surface((size, size))
+                self.image.fill((200, 50, 50))
         self.image = pygame.transform.scale(self.image, (size, size))
         self.rect = self.image.get_rect(center=(x, y))
         self.speed = 1.2 * scale_ratio
@@ -305,31 +325,15 @@ class Cyclops(pygame.sprite.Sprite):
         dist = math.hypot(dx, dy)
         if dist > 0:
             dx /= dist; dy /= dist
-            
             y_antes = self.rect.y
             self.rect.y += dy * self.speed
             idx_y = self.rect.collidelist(bloques)
-            col_y = idx_y != -1
-            if col_y: 
-                self.rect.y = y_antes
+            if idx_y != -1: self.rect.y = y_antes
 
             x_antes = self.rect.x
             self.rect.x += dx * self.speed
             idx_x = self.rect.collidelist(bloques)
-            col_x = idx_x != -1
-            if col_x: 
-                self.rect.x = x_antes
-            
-            if col_x and not col_y:
-                move_y = dy
-                if abs(dy) < 0.1:
-                    move_y = -1 if self.rect.centery < bloques[idx_x].centery else 1
-                self.rect.y += (1 if move_y > 0 else -1) * (self.speed * 0.8)
-            elif col_y and not col_x:
-                move_x = dx
-                if abs(dx) < 0.1:
-                    move_x = -1 if self.rect.centerx < bloques[idx_y].centerx else 1
-                self.rect.x += (1 if move_x > 0 else -1) * (self.speed * 0.8)
+            if idx_x != -1: self.rect.x = x_antes
 
             for other in enemies_group:
                 if other != self and self.rect.colliderect(other.rect):
@@ -341,13 +345,13 @@ class Cyclops(pygame.sprite.Sprite):
                     if odist > 0:
                         self.rect.x += (ox / odist) * (self.speed * 1.2)
                         self.rect.y += (oy / odist) * (self.speed * 1.2)
-
             self.rect.clamp_ip(bloque_exterior)
+
 class DropItem(pygame.sprite.Sprite):
     def __init__(self, x, y, item_type):
         super().__init__()
         self.type = item_type
-        size = int(50 * scale_ratio) # Aumentado de 30 a 50 para que se vean más grandes
+        size = int(50 * scale_ratio)
         img_path = "Tiles/tile_0115.png" if item_type == "potion" else "Tiles/tile_0106.png"
         try:
             self.image = pygame.image.load(img_path).convert_alpha()
@@ -435,6 +439,7 @@ def blur_surface(surface):
     dark_overlay.set_alpha(150)
     blur.blit(dark_overlay, (0,0))
     return blur
+
 CAUSAS = {
     "fireball": "una bola de fuego del wizard",
     "slime": "un ataque del slime",
@@ -447,7 +452,6 @@ def end_screen(bg_surface, score, level, round_num, is_victory, causa_muerte):
     running = True
     while running:
         screen.blit(bg_surface, (0, 0))
-        
         main_text = "¡VICTORIA!" if is_victory else f"HAS PERDIDO a causa de {CAUSAS.get(causa_muerte, causa_muerte)}"
         color = GREEN if is_victory else HEALTH_RED
         
@@ -468,6 +472,185 @@ def end_screen(bg_surface, score, level, round_num, is_victory, causa_muerte):
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 running = False
+
+        pygame.display.flip()
+        clock.tick(60)
+
+#Pantalla Estadisticas
+def estadisticas_menu(bg_surface):
+    clock = pygame.time.Clock()
+    pestana_actual = 1  
+    variable_idx = 0
+    variables_disponibles = ["score", "duration", "amount"]
+    nombres_variables = {"score": "Puntaje", "duration": "Duración (s)", "amount": "Daño Recibido"}
+    
+    w_tab, h_tab = int(180 * scale_ratio), int(45 * scale_ratio)
+    y_tab = int(80 * scale_ratio)
+    btn_tab1 = pygame.Rect(WIDTH//2 - int(280 * scale_ratio), y_tab, w_tab, h_tab)
+    btn_tab2 = pygame.Rect(WIDTH//2 - int(90 * scale_ratio), y_tab, w_tab, h_tab)
+    btn_tab3 = pygame.Rect(WIDTH//2 + int(100 * scale_ratio), y_tab, w_tab, h_tab)
+    
+    btn_volver = pygame.Rect(int(50 * scale_ratio), HEIGHT - int(80 * scale_ratio), int(150 * scale_ratio), int(50 * scale_ratio))
+    btn_cambiar_var = pygame.Rect(WIDTH - int(280 * scale_ratio), int(80 * scale_ratio), int(220 * scale_ratio), h_tab)
+    
+    ver_calidad = False
+
+    running = True
+    while running:
+        screen.blit(bg_surface, (0, 0))
+        
+        title = font_title.render("ESTADÍSTICAS DEL JUEGO", True, WHITE)
+        screen.blit(title, (WIDTH//2 - title.get_width()//2, int(15 * scale_ratio)))
+        
+        color1 = GOLD if pestana_actual == 1 else BTN_COLOR
+        color2 = GOLD if pestana_actual == 2 else BTN_COLOR
+        color3 = GOLD if pestana_actual == 3 else BTN_COLOR
+        
+        pygame.draw.rect(screen, color1, btn_tab1, border_radius=6)
+        pygame.draw.rect(screen, color2, btn_tab2, border_radius=6)
+        pygame.draw.rect(screen, color3, btn_tab3, border_radius=6)
+        
+        screen.blit(font_btn.render("1. Resumen", True, BLACK if pestana_actual == 1 else WHITE), (btn_tab1.x + int(15*scale_ratio), btn_tab1.y + int(8*scale_ratio)))
+        screen.blit(font_btn.render("2. Distribución", True, BLACK if pestana_actual == 2 else WHITE), (btn_tab2.x + int(10*scale_ratio), btn_tab2.y + int(8*scale_ratio)))
+        screen.blit(font_btn.render("3. Relación", True, BLACK if pestana_actual == 3 else WHITE), (btn_tab3.x + int(15*scale_ratio), btn_tab3.y + int(8*scale_ratio)))
+
+        mouse_pos = pygame.mouse.get_pos()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    if ver_calidad:
+                        ver_calidad = False
+                    else:
+                        running = False
+                elif event.key == pygame.K_c:
+                    ver_calidad = not ver_calidad
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if btn_volver.collidepoint(mouse_pos):
+                    if ver_calidad:
+                        ver_calidad = False
+                    else:
+                        running = False
+                elif btn_tab1.collidepoint(mouse_pos):
+                    pestana_actual = 1
+                elif btn_tab2.collidepoint(mouse_pos):
+                    pestana_actual = 2
+                elif btn_tab3.collidepoint(mouse_pos):
+                    pestana_actual = 3
+                elif btn_cambiar_var.collidepoint(mouse_pos) and pestana_actual == 1:
+                    variable_idx = (variable_idx + 1) % len(variables_disponibles)
+
+        if ver_calidad:
+            overlay = pygame.Surface((WIDTH, HEIGHT))
+            overlay.set_alpha(230); overlay.fill(BLACK)
+            screen.blit(overlay, (0,0))
+            
+            rep = reporte_datos()
+            list(iter_events("logs", rep))
+            
+            t_cal = font_title.render("REPORTE DE CALIDAD DE DATOS", True, GOLD)
+            screen.blit(t_cal, (WIDTH//2 - t_cal.get_width()//2, HEIGHT//2 - int(180 * scale_ratio)))
+            
+            lines = [
+                f"Archivos procesados: {rep['Archivos procesados']}",
+                f"Líneas leídas: {rep['Lineas leidas']}",
+                f"Eventos válidos: {rep['Eventos validos']}",
+                f"Líneas corruptas: {rep['Lineas corruptas']}",
+                f"Sesiones incompletas: {rep['Sesiones incompletas']}"
+            ]
+            for idx, text_line in enumerate(lines):
+                lbl = font_btn.render(text_line, True, WHITE)
+                screen.blit(lbl, (WIDTH//2 - lbl.get_width()//2, HEIGHT//2 - int(80 * scale_ratio) + idx * int(45 * scale_ratio)))
+                
+            inst = font_hud.render("Presiona ESC o haz clic en Volver para regresar", True, GOLD)
+            screen.blit(inst, (WIDTH//2 - inst.get_width()//2, HEIGHT//2 + int(180 * scale_ratio)))
+            
+        else:
+            var_actual = variables_disponibles[variable_idx]
+            
+            if pestana_actual == 1:
+                pygame.draw.rect(screen, BTN_COLOR, btn_cambiar_var, border_radius=6)
+                lbl_var = font_btn.render(nombres_variables[var_actual], True, GOLD)
+                screen.blit(lbl_var, (btn_cambiar_var.x + int(15 * scale_ratio), btn_cambiar_var.y + int(8 * scale_ratio)))
+                
+                vals = stats.extraer_valores_variable("logs", var_actual)
+                dist = stats.analizar_distribucion("logs", var_actual)
+                
+                n = len(vals)
+                suma_v = sum(vals) if n > 0 else 0
+                media = suma_v / n if n > 0 else 0
+                min_v = vals[0] if n > 0 else 0
+                max_v = vals[-1] if n > 0 else 0
+                
+                varianza = sum((x - media) ** 2 for x in vals) / (n - 1) if n > 1 else 0
+                desv = math.sqrt(varianza)
+                cv = (desv / media * 100) if media > 0 else 0
+
+                resumen_textos = [
+                    f"Conteo (n): {n}",
+                    f"Suma total: {suma_v:.1f}",
+                    f"Media: {media:.2f}",
+                    f"Mediana: {dist['Mediana']:.2f}",
+                    f"Desviación Estándar: {desv:.2f}",
+                    f"Coeficiente de Variación (CV): {cv:.2f}%",
+                    f"Mínimo / Máximo: {min_v} / {max_v}",
+                    f"Percentil 90 (P90): {dist['P90']:.2f}"
+                ]
+                
+                y_ini = int(180 * scale_ratio)
+                for idx, txt in enumerate(resumen_textos):
+                    lbl = font_big.render(txt, True, WHITE)
+                    screen.blit(lbl, (WIDTH//2 - int(300 * scale_ratio), y_ini + idx * int(45 * scale_ratio)))
+
+            elif pestana_actual == 2:
+                vals = stats.extraer_valores_variable("logs", "score")
+                atipicos, l_inf, l_sup = stats.detectar_atipicos_iqr(vals)
+                dist = stats.analizar_distribucion("logs", "score")
+                
+                info_textos = [
+                    f"Q1: {dist['Q1']}   |   Mediana: {dist['Mediana']}   |   Q3: {dist['Q3']}",
+                    f"Rango Intercuartílico (IQR): {dist['IQR']}",
+                    f"Límite Inferior IQR: {l_inf:.1f}  -  Límite Superior IQR: {l_sup:.1f}",
+                    f"Valores Atípicos detectados (IQR): {len(atipicos)} elementos"
+                ]
+                
+                y_ini = int(180 * scale_ratio)
+                for idx, txt in enumerate(info_textos):
+                    lbl = font_big.render(txt, True, WHITE)
+                    screen.blit(lbl, (WIDTH//2 - int(450 * scale_ratio), y_ini + idx * int(55 * scale_ratio)))
+                    
+                box_y = HEIGHT//2 + int(120 * scale_ratio)
+                pygame.draw.line(screen, WHITE, (WIDTH//2 - 250, box_y), (WIDTH//2 + 250, box_y), 3)
+                pygame.draw.rect(screen, GOLD, (WIDTH//2 - 120, box_y - 35, 240, 70), 3)
+                pygame.draw.line(screen, GREEN, (WIDTH//2, box_y - 35), (WIDTH//2, box_y + 35), 4)
+
+            elif pestana_actual == 3:
+                r, n_par, _, _, _ = stats.calcular_correlacion_pearson("logs", "duration", "score")
+                
+                interpretacion = "Correlación muy débil o nula"
+                if abs(r) >= 0.7: interpretacion = "Correlación fuerte"
+                elif abs(r) >= 0.4: interpretacion = "Correlación moderada"
+                elif abs(r) > 0.1: interpretacion = "Correlación débil"
+
+                rel_textos = [
+                    f"Pares analizados (n): {n_par}",
+                    f"Coeficiente de Correlación de Pearson (r): {r:.5f}",
+                    f"Interpretación: {interpretacion}",
+                    "Variables comparadas: Duración de partida vs. Puntaje final"
+                ]
+                
+                y_ini = int(220 * scale_ratio)
+                for idx, txt in enumerate(rel_textos):
+                    lbl = font_big.render(txt, True, WHITE)
+                    screen.blit(lbl, (WIDTH//2 - int(450 * scale_ratio), y_ini + idx * int(60 * scale_ratio)))
+
+        pygame.draw.rect(screen, HEALTH_RED, btn_volver, border_radius=6)
+        screen.blit(font_btn.render("Volver", True, WHITE), (btn_volver.x + int(25 * scale_ratio), btn_volver.y + int(8 * scale_ratio)))
+        
+        hint_cal = font_hud.render("Presiona la tecla [ C ] para ver el Reporte de Calidad de Datos", True, GOLD)
+        screen.blit(hint_cal, (WIDTH - hint_cal.get_width() - int(30 * scale_ratio), HEIGHT - int(50 * scale_ratio)))
 
         pygame.display.flip()
         clock.tick(60)
@@ -493,7 +676,8 @@ def run_game():
     won = False
     h_inicio = time.time()
     iniciar_sesion()
-    registrar("SESSION_START",player= GAME_SETTINGS["player_name"], difficulty =DIFF_LOG[GAME_SETTINGS["difficulty"]] )
+    registrar("SESSION_START", player=GAME_SETTINGS["player_name"], difficulty=DIFF_LOG[GAME_SETTINGS["difficulty"]])
+    
     while running:
         screen.fill(BLACK)
         screen.blit(mapa, (0, 0))
@@ -519,7 +703,7 @@ def run_game():
                     won = True
                     running = False 
                 else:
-                    registrar("LEVEL_UP",level=level,time=round(time.time() - h_inicio, 1))
+                    registrar("LEVEL_UP", level=level, time=round(time.time() - h_inicio, 1))
             if running:
                 spawn_wave(level, round_num, enemies, all_sprites, proyectiles, items)
 
@@ -547,7 +731,7 @@ def run_game():
                 player.recibir_daño(enemy.damage, enemy.tipo)
                 if snd_hit: snd_hit.play() 
 
-        if player.hp<=0:
+        if player.hp <= 0:
             registrar("PLAYER_DEATH", cause=player.causa_muerte, level=level)
             running = False
 
@@ -579,9 +763,9 @@ def run_game():
 
     bg_snap = screen.copy()
     blurred_bg = blur_surface(bg_snap)
-    registrar("SESSION_END",score=score, level=level, duration=round(time.time()- h_inicio,1),result="victory" if won else "death")
+    registrar("SESSION_END", score=score, level=level, duration=round(time.time() - h_inicio, 1), result="victory" if won else "death")
     bitacora.vaciar()
-    end_screen(blurred_bg, score, level, round_num, won, player.causa_muerte  if not won else None)
+    end_screen(blurred_bg, score, level, round_num, won, player.causa_muerte if not won else None)
 
 def settings_menu(bg_surface):
     clock = pygame.time.Clock()
@@ -640,14 +824,13 @@ def settings_menu(bg_surface):
                 if btn_back.collidepoint(mouse_pos):
                     save_settings(GAME_SETTINGS) 
                     running = False                  
-            if event.type ==pygame.KEYDOWN and escribiendo_nombre:
+            if event.type == pygame.KEYDOWN and escribiendo_nombre:
                 if event.key == pygame.K_BACKSPACE:
                     GAME_SETTINGS["player_name"] = GAME_SETTINGS["player_name"][:-1]
                 elif event.key == pygame.K_RETURN:
                     escribiendo_nombre = False
                 elif (event.unicode and event.unicode.isprintable() and event.unicode not in "|;=" and len(GAME_SETTINGS["player_name"]) < 12):
-                    GAME_SETTINGS["player_name"]  += event.unicode
-                    
+                    GAME_SETTINGS["player_name"] += event.unicode
 
         def draw_option(text, rect_less, rect_more, val_text, y):
             label = font_btn.render(text, True, WHITE)
@@ -658,7 +841,6 @@ def settings_menu(bg_surface):
             screen.blit(font_btn.render("+", True, WHITE), (rect_more.x + (rect_more.w//2 - 10), rect_more.y))
             val_lbl = font_btn.render(val_text, True, GOLD)
             screen.blit(val_lbl, (WIDTH//2 - val_lbl.get_width()//2, y))
-            
 
         draw_option("Efectos:", btn_sfx_menos, btn_sfx_mas, f"{int(GAME_SETTINGS['sfx_vol']*100)}%", HEIGHT//2 - int(100 * scale_ratio))
         draw_option("Música:", btn_mus_menos, btn_mus_mas, f"{int(GAME_SETTINGS['music_vol']*100)}%", HEIGHT//2)
@@ -672,11 +854,11 @@ def settings_menu(bg_surface):
         screen.blit(back_text, (btn_back.x + btn_back.w//2 - back_text.get_width()//2, btn_back.y))
 
         Nombre = font_btn.render("Nombre:", True, WHITE)
-        screen.blit(Nombre, (WIDTH//2 - int(350* scale_ratio),cuadro_nombre.y))
+        screen.blit(Nombre, (WIDTH//2 - int(350 * scale_ratio), cuadro_nombre.y))
         pygame.draw.rect(screen, BTN_COLOR, cuadro_nombre)
         pygame.draw.rect(screen, GOLD if escribiendo_nombre else WHITE, cuadro_nombre, 2)
-        Playername = font_btn.render(GAME_SETTINGS["player_name"]+ ("|" if escribiendo_nombre else ""), True, GOLD)
-        screen.blit(Playername, (cuadro_nombre.x +10, cuadro_nombre.y ))
+        Playername = font_btn.render(GAME_SETTINGS["player_name"] + ("|" if escribiendo_nombre else ""), True, GOLD)
+        screen.blit(Playername, (cuadro_nombre.x + 10, cuadro_nombre.y))
         
         pygame.display.flip()
         clock.tick(60)
@@ -691,7 +873,7 @@ def main_menu():
     clock = pygame.time.Clock()
 
     while True:
-        screen.blit(inicio, (0,0))
+        screen.blit(inicio, (0, 0))
         mouse_pos = pygame.mouse.get_pos()
 
         for event in pygame.event.get():
@@ -709,7 +891,9 @@ def main_menu():
                     blurred_bg = blur_surface(bg_snap)
                     settings_menu(blurred_bg)
                 elif stats_btn.collidepoint(mouse_pos):
-                    pass
+                    bg_snap = screen.copy()
+                    blurred_bg = blur_surface(bg_snap)
+                    estadisticas_menu(blurred_bg)
                 elif quit_btn.collidepoint(mouse_pos):
                     pygame.quit(); sys.exit()
 
@@ -717,4 +901,4 @@ def main_menu():
         clock.tick(60)
 
 if __name__ == "__main__":
-    main_menu()
+    main_menu() 

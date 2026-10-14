@@ -5,6 +5,7 @@ from proyectil import Proyectil
 class Wizard(pygame.sprite.Sprite):
     def __init__(self, x, y, proyectiles, bloques):
         super().__init__()
+        self.tipo ="wizard"
         self.image = pygame.image.load("Tiles/tile_0111.png").convert_alpha()
         self.image = pygame.transform.scale(self.image,(50,50))
         self.rect  = self.image.get_rect(center=(x,y)) 
