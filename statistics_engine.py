@@ -290,3 +290,28 @@ def obtener_tabla_costo_memoria():
         {"estadistica": "histograma de k intervalos", "una_sola_pasada": "No", "memoria": "O(N)", "por_que": "Necesitamos recorrer y agrupar por rangos."},
         {"estadistica": "mediana, cuartiles, P90", "una_sola_pasada": "No", "memoria": "O(N)", "por_que": "Obliga a ordenar todos los datos para hallar posiciones."}
     ]
+def cinco_numeros(datos):
+    if not datos: return 0, 0, 0, 0, 0, []
+    datos_ordenados = sorted(datos)
+    min_val = datos_ordenados[0]
+    max_val = datos_ordenados[-1]
+    
+    q1 = calcular_percentil(datos_ordenados, 25)
+    med = calcular_percentil(datos_ordenados, 50)
+    q3 = calcular_percentil(datos_ordenados, 75)
+    
+    iqr = q3 - q1
+    l_inf = q1 - 1.5 * iqr
+    l_sup = q3 + 1.5 * iqr
+    
+    atipicos = [x for x in datos_ordenados if x < l_inf or x > l_sup]
+    b_inf = min([x for x in datos_ordenados if x >= l_inf], default=min_val)
+    b_sup = max([x for x in datos_ordenados if x <= l_sup], default=max_val)
+    
+    return b_inf, q1, med, q3, b_sup, atipicos
+
+def interpretar_r(r, n):
+    if abs(r) >= 0.7: return "Correlación fuerte"
+    if abs(r) >= 0.4: return "Correlación moderada"
+    if abs(r) > 0.1: return "Correlación débil"
+    return "Correlación muy débil o nula"
