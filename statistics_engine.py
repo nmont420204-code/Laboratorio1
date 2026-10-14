@@ -1,8 +1,8 @@
-import pygame
-import sys
+import math
 from telemetry import iter_events, reporte_datos
 
 def calcular_percentil(lista_ordenada, p):
+    
     pass
 
 def analizar_distribucion(log_dir, variable="score"):
