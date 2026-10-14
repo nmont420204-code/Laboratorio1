@@ -1,6 +1,6 @@
 {
-    "difficulty": "F\u00e1cil",
-    "sfx_vol": 0.5,
-    "music_vol": 0.5,
+    "difficulty": "Normal",
+    "sfx_vol": 0.10000000000000003,
+    "music_vol": 0.10000000000000003,
     "player_name": "Player"
 }

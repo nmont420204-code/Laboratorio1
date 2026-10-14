@@ -10,20 +10,24 @@ from telemetry import EscrituraBitacora, reporte_datos, iter_events
 import statistics_engine as stats
 from pantalla_stats import PantallaEstadisticas
 
+# Inicializa el sistema de telemetría y el buffer de escritura en disco
 bitacora = EscrituraBitacora("logs", 1)
 session_id = ""
 
 def iniciar_sesion():
     global session_id
+    # Genera un ID único para la sesión basado en el tiempo actual en formato Unix
     session_id = str(int(time.time()))
 
 def registrar(evento, **datos):
+    # Formatea los datos en pares clave=valor y los escribe en la bitácora con su marca de tiempo
     texto_datos = ";".join(f"{clave}={valor}" for clave, valor in datos.items())
     bitacora.escribir(f"{time.time()}|{session_id}|{evento}|{texto_datos}")
 
 pygame.init()
 pygame.mixer.init()
 
+# Intenta cargar y reproducir la música de fondo en bucle infinito
 try:
     pygame.mixer.music.load("sounds/musica.mp3")
     pygame.mixer.music.play(-1)
@@ -40,6 +44,7 @@ DEFAULT_SETTINGS = {
 DIFF_LOG = {"Fácil": "easy", "Normal": "normal", "Difícil": "Difficult"}
 
 def load_settings():
+    # Carga las configuraciones del usuario desde el archivo JSON o usa valores por defecto
     settings = DEFAULT_SETTINGS.copy()
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -59,6 +64,7 @@ def load_settings():
     return settings
 
 def save_settings(settings):
+    # Guarda los ajustes actuales del juego en el archivo JSON local
     if not settings["player_name"].strip():
         settings["player_name"] = "Player"
     with open(SETTINGS_FILE, "w") as f:
@@ -66,6 +72,7 @@ def save_settings(settings):
 
 GAME_SETTINGS = load_settings()
 
+# Configura la pantalla en modo completo adaptándose a la resolución nativa
 info = pygame.display.Info()
 WIDTH, HEIGHT = info.current_w, info.current_h
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -94,6 +101,7 @@ floor_bottom = int(HEIGHT * 0.86)
 
 bloque_exterior = pygame.Rect(floor_left, floor_top, floor_right - floor_left, floor_bottom - floor_top)
 
+# Delimita los bordes físicos del mapa para las colisiones
 bloques = [
     pygame.Rect(floor_left, floor_top, floor_right - floor_left, 15),
     pygame.Rect(floor_left, floor_bottom - 15, floor_right - floor_left, 15),
@@ -123,6 +131,7 @@ except:
     snd_attack = snd_hit = snd_shoot = None
 
 def update_volumes():
+    # Aplica los volúmenes configurados a los canales de audio y música
     if snd_attack: snd_attack.set_volume(GAME_SETTINGS["sfx_vol"])
     if snd_hit: snd_hit.set_volume(GAME_SETTINGS["sfx_vol"])
     if snd_shoot: snd_shoot.set_volume(GAME_SETTINGS["sfx_vol"])
@@ -179,6 +188,7 @@ class Knight(pygame.sprite.Sprite):
         self.attack_cooldown = 0
 
     def update(self):
+        # Gestiona el movimiento del jugador validando colisiones con los obstáculos del mapa
         keys = pygame.key.get_pressed()
         if self.hit_cooldown > 0: self.hit_cooldown -= 1
         if self.attack_cooldown > 0: self.attack_cooldown -= 1 
@@ -228,6 +238,7 @@ class Knight(pygame.sprite.Sprite):
                 self.attack_rect = None
 
     def attack(self):
+        # Inicia la animación y habilitación del área de ataque con espada
         if not self.is_attacking and self.attack_cooldown == 0:
             self.is_attacking = True
             self.current_frame = 0
@@ -250,6 +261,7 @@ class Knight(pygame.sprite.Sprite):
                 surface.blit(rotated_image, rotated_rect)
 
     def recibir_daño(self, cantidad, causa):
+        # Reduce vida al jugador y registra el daño recibido en la telemetría
         self.hp -= cantidad 
         registrar("DAMAGE_TAKEN", amount=cantidad, source=causa)
         self.hit_cooldown = 50
@@ -272,6 +284,7 @@ class Slime(pygame.sprite.Sprite):
         self.hp = 30
 
     def update(self, target, enemies_group):
+        # Persigue al jugador usando vectores y aplica separación física con otros enemigos
         dx = target.rect.centerx - self.rect.centerx
         dy = target.rect.centery - self.rect.centery
         dist = math.hypot(dx, dy)
@@ -289,7 +302,7 @@ class Slime(pygame.sprite.Sprite):
             idx_x = self.rect.collidelist(bloques)
             col_x = idx_x != -1
             if col_x: self.rect.x = x_antes
-            
+                
             for other in enemies_group:
                 if other != self and self.rect.colliderect(other.rect):
                     ox = self.rect.centerx - other.rect.centerx
@@ -321,6 +334,7 @@ class Cyclops(pygame.sprite.Sprite):
         self.hp = 70
 
     def update(self, target, enemies_group):
+        # Mueve al cíclope hacia el jugador manteniendo colisiones con el entorno
         dx = target.rect.centerx - self.rect.centerx
         dy = target.rect.centery - self.rect.centery
         dist = math.hypot(dx, dy)
@@ -366,10 +380,12 @@ class DropItem(pygame.sprite.Sprite):
         self.duration = 10000 
 
     def update(self):
+        # Desaparece el objeto del suelo si transcurre demasiado tiempo sin ser recogido
         if pygame.time.get_ticks() - self.spawn_time > self.duration:
             self.kill()
 
 def draw_hud(surface, x, y, player, score, level, round_num):
+    # Renderiza la barra de vida, puntuación y nivel actual en pantalla
     bar_width = int(200 * scale_ratio)
     bar_height = int(22 * scale_ratio)
     fill = max(0, (player.hp / player.max_hp) * bar_width)
@@ -401,6 +417,7 @@ def random_valid_pos(size_w, size_h):
             return x, y
 
 def spawn_wave(level, round_num, enemies_group, all_sprites, proyectiles, items_group):
+    # Genera de forma dinámica los enemigos y objetos según la dificultad y ronda
     mult = {"Fácil": 0.5, "Normal": 1.0, "Difícil": 1.5}[GAME_SETTINGS["difficulty"]]
     
     num_slimes = int((level * 2 + round_num) * mult)
@@ -433,6 +450,7 @@ def spawn_wave(level, round_num, enemies_group, all_sprites, proyectiles, items_
     items_group.add(sword); all_sprites.add(sword)
 
 def blur_surface(surface):
+    # Aplica un efecto visual de difuminado al capturar la pantalla actual
     small = pygame.transform.smoothscale(surface, (WIDTH // 10, HEIGHT // 10))
     blur = pygame.transform.smoothscale(small, (WIDTH, HEIGHT))
     dark_overlay = pygame.Surface((WIDTH, HEIGHT))
@@ -477,7 +495,6 @@ def end_screen(bg_surface, score, level, round_num, is_victory, causa_muerte):
         pygame.display.flip()
         clock.tick(60)
 
-#Pantalla Estadisticas
 def estadisticas_menu(bg_surface):
     clock = pygame.time.Clock()
     pestana_actual = 1  
@@ -824,7 +841,7 @@ def settings_menu(bg_surface):
                     
                 if btn_back.collidepoint(mouse_pos):
                     save_settings(GAME_SETTINGS) 
-                    running = False                  
+                    running = False                 
             if event.type == pygame.KEYDOWN and escribiendo_nombre:
                 if event.key == pygame.K_BACKSPACE:
                     GAME_SETTINGS["player_name"] = GAME_SETTINGS["player_name"][:-1]
