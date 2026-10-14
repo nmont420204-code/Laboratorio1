@@ -134,3 +134,20 @@ def reporte_datos():
 
    }
    return reporte 
+
+def imprimir_reporte(reporte):
+   print("Archivos procesados:", reporte["Archivos procesados"])
+   print("Lineas leidas:", reporte["Lineas leidas"])
+   if reporte["Lineas leidas"] > 0:
+     x = reporte["Eventos validos"] * 100 / reporte["Lineas leidas"]
+     print("Eventos validos:", reporte["Eventos validos"],  "(" + str(round(x, 2)) + "%)")
+
+     y = reporte["Lineas corruptas"] * 100 / reporte["Lineas leidas"]
+     print("Lineas corruptas:", reporte["Lineas corruptas"], "(" + str(round(y, 2)) + "%)")
+   else:
+      print("Eventos validos: 0 (0.0%)")
+      print("Lineas corruptas: 0 (0.0%)")
+
+   print("Sesiones incompletas:", reporte["Sesiones incompletas"])
+
+
