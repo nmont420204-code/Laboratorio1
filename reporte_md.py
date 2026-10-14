@@ -1,6 +1,8 @@
 from telemetry import iter_events 
 from estadistica import MedidasDescriptivas
 
+def nuevo_reporte():
+    return {"Archivos procesados":0, "Lineas leidas": 0, "Eventos validos":0, "Lineas corruptas": 0}
 def leer_datos(texto):
     datos = {}
     separar= texto.split(";")
@@ -39,9 +41,9 @@ def imprimir(nombre,o_md):
             print("coef_variación:",o_md.coef_variación())
 
 if __name__ == "__main__":
-    reporte= {"Archivos procesados":0, "Lineas leidas": 0, "Eventos validos":0, "Lineas corruptas": 0}
-    puntaje, duracion, dano = clasificar("logs", reporte)
+    reporte= nuevo_reporte()
+    puntaje,duración,daño = clasificar("logs")
     imprimir("PUNTAJE", puntaje)
-    imprimir("DURACION", duracion)
-    imprimir("DANO RECIBIDO", dano)  
+    imprimir("DURACIÓN", duración)
+    imprimir("DAÑO RECIBIDO", daño)  
     print (reporte)
