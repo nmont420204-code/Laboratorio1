@@ -8,6 +8,7 @@ import time
 from wizard import Wizard
 from telemetry import EscrituraBitacora, reporte_datos, iter_events
 import statistics_engine as stats
+from pantalla_stats import PantallaEstadisticas
 
 bitacora = EscrituraBitacora("logs", 1)
 session_id = ""
@@ -873,7 +874,7 @@ def main_menu():
     clock = pygame.time.Clock()
 
     while True:
-        screen.blit(inicio, (0, 0))
+        screen.blit(inicio, (0,0))
         mouse_pos = pygame.mouse.get_pos()
 
         for event in pygame.event.get():
@@ -891,14 +892,31 @@ def main_menu():
                     blurred_bg = blur_surface(bg_snap)
                     settings_menu(blurred_bg)
                 elif stats_btn.collidepoint(mouse_pos):
-                    bg_snap = screen.copy()
-                    blurred_bg = blur_surface(bg_snap)
-                    estadisticas_menu(blurred_bg)
+                    stats = PantallaEstadisticas("logs")
+                    mostrando_stats = True
+
+                    while mostrando_stats:
+                        for ev in pygame.event.get():
+                            if ev.type == pygame.QUIT:
+                                pygame.quit()
+                                sys.exit()
+
+                            resultado = stats.manejar_evento(ev)
+
+                            if resultado == "salir":
+                                mostrando_stats = False
+
+                        if mostrando_stats:
+                            stats.dibujar(screen)
+                            pygame.display.flip()
+                            clock.tick(60)
+
                 elif quit_btn.collidepoint(mouse_pos):
-                    pygame.quit(); sys.exit()
+                    pygame.quit()
+                    sys.exit()
 
         pygame.display.flip()
         clock.tick(60)
 
 if __name__ == "__main__":
-    main_menu() 
+    main_menu()
