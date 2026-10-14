@@ -41,5 +41,3 @@ class MedidasDescriptivas():
 md= MedidasDescriptivas()
 for x in [1200,1500,1500,1800,2100,2400,2400,3000,3600,9000]:
     md.agregar(x)
-print(md.conteo,md.suma,md.suma_cuad,md.max,md.min)
-print(md.rango(),md.media(),md.varianza(),md.desviación(),md.coef_variación())
