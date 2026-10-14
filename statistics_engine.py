@@ -34,7 +34,7 @@ def calcular_percentil(lista, p):
     if inferior == superior:
         return lista[int(indice)]
     
-    # Promedio simple entre los dos valores cercanos
+    # Promedio entre los dos valores cercanos
     return (lista[int(inferior)] + lista[int(superior)]) / 2.0
 
 def analizar_distribucion(log_dir, variable="score"):
